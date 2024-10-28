@@ -4,7 +4,7 @@
 // @version      1.0
 // @description  Data format: one column with '\r\n' delimeter
 // @author       Stirli
-// @match        https://138minsk.schools.by/journal/*
+// @match        https://*.schools.by/journal/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=schools.by 
 // @require      https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js
 // @grant        none
