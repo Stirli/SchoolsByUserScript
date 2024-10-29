@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         copy/paste quarter marks in class journal
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.0.1
 // @description  Data format: one column with '\r\n' delimeter
 // @author       Stirli
 // @match        https://*.schools.by/journal/*
@@ -74,7 +74,7 @@
                     return;
                 }
                 $.post({
-                    url: `https://138minsk.schools.by/marks/class-subject:${subj}/set-quarter`,
+                    url: `https://${window.location.host}/marks/class-subject:${subj}/set-quarter`,
                     data: { id, m, quarter_id, pupil_id }
                 })
                     .done(function (res) {
