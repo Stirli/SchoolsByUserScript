@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         CopyPasteClass
 // @namespace    http://tampermonkey.net/
-// @version      1.1
+// @version      1.2
 // @description
 // @author       You
 // @match        https://*.schools.by/class/*
@@ -95,13 +95,47 @@
         const setDic = marksEx2.dic([-2, -4, -5, null]);
         const getDic = marksEx1.dic(marksEx2);
 
-        GM_addStyle('#subj_quart_copy_wrap li {padding:4px; list-style: auto;}' +
-            '#subj_quart_copy_wrap ul, #subj_quart_copy_wrap ol {padding: revert; margin-bottom: 32px}' +
-            '.lnk{cursor:pointer; margin: 4px}\n' +
-            '.btn { cursor:default; padding: 4px; margin: 4px; background-color: #F3F5FF; width: fit-content; border: 1px solid #E2E7FF; border-radius: 4px}');
+        GM_addStyle(
+            `.tbl {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: stretch;
+                }
+                .tbl tr {
+                        flex-direction: row;
+                        justify-content: space-between;
+                        display: flex;
+                }
+                .tbl td {
+                    width: -webkit-fill-available;
+                    border: 1px gray solid;
+                    padding: 4px;
+                }
+                #subj_quart_copy_wrap li {
+                    padding:4px; 
+                    list-style: auto;
+                }
+
+                #subj_quart_copy_wrap ul, #subj_quart_copy_wrap ol {
+                    padding: revert;
+                    margin-bottom: 32px;
+                }
+                .lnk{
+                    margin: 4px;
+                    cursor:pointer; 
+                }
+                .btn {
+                    cursor:default;
+                    padding: 4px;
+                    margin: 4px;
+                    background-color: #F3F5FF;
+                    width: fit-content;
+                    border: 1px solid #E2E7FF;
+                    border-radius: 4px;
+            }`);
 
         $('.tabs1_wrap').before($('<div class="btn">Четвертные оценки</div>').click(function () {
-            $('.tabs1_wrap').empty();
+            // $('.tabs1_wrap').empty();
             $("#subj_quart_copy_wrap").empty();
             $('.grid_pst')
                 .after($("<div id='subj_quart_copy_wrap' class='line_small'><p>Нажмите на предмет, чтобы добавить его в список.<br>Удерживайте при этом Ctrl, чтобы сразу скопировать его в буфер обмена</p><ol id='subjList'/><p>Выбрано:</p><ol id='subjCopyList'/></div>")
@@ -115,15 +149,18 @@
                                 .map((i, e) => getQuarterMarksAsync(e.getAttribute('data-link'), i))
                                 .toArray();
                             const tableArr = (await Promise.all(tasks)).sort((a, b) => a.index - b.index);
-                            let table = '';
+                            let textBuf = '';
+                            let table = $("<table class='tbl'/>").appendTo("#subj_quart_copy_wrap");
                             const marksCount = tableArr[0].arr.length;
 
                             for (let i = 0; i < marksCount; i++) {
-                                table += tableArr.map(v => v.arr[i]).join('\t') + '\r\n';
+                                const lineArr = tableArr.map(v => v.arr[i]);
+                                table.append(`<tr>${lineArr.map(el => `<td>${el}</td>`).join()}</tr>`);
+                                textBuf += lineArr.join('\t') + '\r\n';
                             }
 
-                            console.log(table);
-                            await navigator.clipboard.writeText(table);
+                            console.log(textBuf);
+                            await navigator.clipboard.writeText(textBuf);
                             alert('скопировано');
                         }))
                 );
@@ -159,7 +196,8 @@
                                         });
                                 })
                                 .appendTo($("#subjList"))
-                                .wrap("<li></li>");
+                                .wrap("<li></li>")
+                                .click();
                         })
 
                     console.log(arr);
