@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         copy/paste quarter marks in class journal
 // @namespace    http://tampermonkey.net/
-// @version      1.1
+// @version      1.2
 // @description  Data format: one column with '\r\n' delimeter
 // @author       Stirli
 // @match        https://*.schools.by/journal/*
