@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Class Selector
 // @namespace    http://tampermonkey.net/
-// @version      1.1
+// @version      1.2
 // @description  Adds class selector drop box
 // @author       Stirli
 // @match        https://*.schools.by/*
@@ -16,10 +16,14 @@
     jQuery(document).ready(function ($) {
 
         jQuery.fn.reverse = [].reverse;
-        const currentClassId = window.location.href.match(/class\/(\d+)/)?.[1];
+        const currentClassId = window.location.href.match(/class\/(\d+)/)?.[1]
+        ??
+        $('.title_box h1 a[href*="/class/"], .kroshki a[href*="/class/')?.[0].href.match(/class\/(\d+)/)?.[1];
+
+        console.log(currentClassId );
 
         $(`<select id="classSelector"></select`)
-            .appendTo('.kroshki')
+            .appendTo('.title_box, .title_box2')
             .on('change', function () {
                 const newClass = $(this).find('option:selected').attr('value');
                 window.location.href = /class\/(\d+)/.test(window.location.href)
