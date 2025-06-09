@@ -69,8 +69,8 @@
     function initEmptyUI() {
         $("#subj_quart_copy_wrap").empty();
 
-        const copySelectedBtn = $("<div class='btn'>Копировать выбранное</div>")
-            .click(onCopySelectedBtnClick);
+        const loadSelectedBtn = $("<div class='btn'>Загрузить выбранное</div>")
+            .click(onLoadSelectedBtnClick);
         const selectAllBtn = $("<div class='btn'>Выбрать всё</div>")
             .click(function () {
                 $('#subjList input').prop('checked', true);
@@ -87,12 +87,13 @@
                 </div>`)
             .append(selectAllBtn)
             .append(cancelAllBtn)
-            .append(copySelectedBtn)
+            .append(loadSelectedBtn)
             .append('<ol id="subjList"/>');
         $('.grid_pst').after(pluginUiBody);
     }
 
-    async function getSubjectQuartersAsync({ subject_id }) {
+
+    async function getSubjectMarksAsync({ subject_id }) {
         let url = window.location.origin + '/journal/' + subject_id;
         return new Promise((resolve) => {
             jQuery.ajax({
@@ -100,21 +101,58 @@
                 type: 'get',
                 dataType: 'html',
                 success: function (data) {
-                    const arr = $(data)
+                    const url = $(data)
                         .find('#journal_quarters_menu ul')
-                        .map((i, ul) => {
-                            const title = $(ul).find('.indorsement').text().trim();
-                            const quarters = $(ul).find('.past, .current')
-                                .map((i, past) => ({
-                                    id: past.getAttribute('quarter_id'),
-                                    title: past.innerText.trim(),
-                                    selected: past.className === 'current' ? 'selected' : ''
-                                }))
-                                .toArray();
-                            return ({ title, quarters });
-                        })
-                        .toArray();
-                    resolve(arr);
+                        .last()
+                        .find(".quarters")
+                        .attr('src');
+
+                    jQuery.ajax({
+                        url,
+                        type: 'get',
+                        dataType: 'html',
+                        success: function (data) {
+                            const pupils = [];
+                            const marks = [];
+                            $(data)
+                                .find('.ltable tbody tr')
+                                .each((i, tr) => {
+                                    const id = parseInt(tr.getAttribute('pupil_id'));
+                                    const name = $(tr).find('a').text();
+                                    pupils.push({ order: i, id, name, });
+                                });
+                            $(data)
+                                .find('.mtable tbody tr')
+                                .each((i, tr) => {
+                                    const id = parseInt(tr.getAttribute('pupil_id'));
+                                    $(tr)
+                                        .find('.qmark, .ymark')
+                                        .each((i, m) => {
+                                            const mark = m.textContent.trim();
+                                            marks.push({
+                                                pupil_id: id,
+                                                quarter_id: m.getAttribute('quarter_id') ?? 'year' + getAcademicYearSecondPart(new Date()),
+                                                value: getDic[mark] ?? mark
+                                            })
+                                        });
+                                });
+                            const quarters = new Map([...$(data)
+                                .find('.mtable tbody tr')
+                                .first()
+                                .find('.qmark')
+                                .map((i, m) => ([[
+                                    m.getAttribute('quarter_id'),
+                                    'Четверть ' + (i + 1)
+                                ]]))
+                                .toArray(),
+                            {
+                                quarter_id: 'year' + getAcademicYearSecondPart(new Date()),
+                                caption: 'Год ' + getAcademicYearSecondPart(new Date())
+                            }
+                            ]);
+                            resolve({ pupils, marks, quarters });
+                        }
+                    });
                 }
             });
         });
@@ -129,15 +167,6 @@
                 .click(onSelectSubjectLinkClick)
                 .appendTo($("#subjList"));
         });
-        if (lessons.length > 0) {
-            const quartersByYears = await getSubjectQuartersAsync({ subject_id: lessons[0].id });
-            const quartersSelectorHtml = quartersByYears
-                .map(({ title, quarters }) => quarters
-                    .map(({ title: qtitle, id, selected }) => `<option ${selected} value="${id}">${title} - ${qtitle}</option>`))
-                .flat()
-                .join('\r\n');
-            $("#subjList").before('<select id="quarterSelector">' + quartersSelectorHtml + '</select>');
-        }
     }
 
 
@@ -213,45 +242,79 @@
         await fillSubjectsListAsync();
     }
 
-    async function onCopySelectedBtnClick() {
-        const quarter_id = $('#quarterSelector').val();
-        const class_id = window.location.href.match(/class\/(\d+)/)[1];
-
+    async function onLoadSelectedBtnClick() {
         const tasks = $('#subjList input:checked')
             .parent()
-            .map((i, e) => getQuarterMarksAsync({ subject_id: e.getAttribute('data-subject'), subject_order: i, quarter_id }))
+            .map(async (i, e) => {
+                const subject_id = e.getAttribute('data-subject');
+                const marks = await getSubjectMarksAsync({ subject_id });
+                marks.subjIndex = i;
+                marks.subject_id = subject_id;
+                return marks;
+            })
             .toArray();
-        const tableArr = (await Promise.all(tasks)).sort((a, b) => a.index - b.index);
-        let textBuf = '';
+        const subjectsData = (await Promise.all(tasks)).sort((a, b) => a.subjIndex - b.subjIndex);
+        console.log(subjectsData);
 
-        const students = await getClassStudentsAsync(class_id);
+        const quartersData = new Map();
+        subjectsData.forEach(({ marks, pupils, subject_id, quarters }) => {
+            marks.forEach(({ pupil_id, quarter_id, value }) => {
+                let quarter;
+                if (quartersData.has(quarter_id)) {
+                    quarter = quartersData.get(quarter_id);
+                }
+                else {
+                    quarter = new Map(pupils.map(({ id, name }, i) => ([id, { id, order: i + 1, name, marks: new Map() }])));
+                    quarter.caption = quarters.get(quarter_id);
+                    quartersData.set(quarter_id, quarter)
+                }
 
-        const table = $(`<table id="tbl_quart_${quarter_id}" class='table'/>`)
-            .appendTo("#subj_quart_copy_wrap");
+                const pupil = quarter.get(pupil_id);
+                pupil.marks.set(subject_id, value);
+            });
+        });
+        console.log(quartersData);
 
-        const headTrString = $('#subjList input:checked + label')
-            .toArray()
-            .map(label => `<th>${label.innerText}</th>`)
-            .join('');
+        quartersData.forEach((quarter, quarter_id) => {
+            const table = $(`<table id="tbl_quart_${quarter_id}" class='table'/>`)
+                .appendTo("#subj_quart_copy_wrap");
 
-        $('<tr/>')
-            .appendTo(table)
-            .wrap('<thead/>')
-            .append('<th>№</th><th>Ф.И.О.</th>')
-            .append(headTrString);
+            const headTrString = $('#subjList input:checked + label')
+                .toArray()
+                .map(label => `<th>${label.innerText}</th>`)
+                .join('');
 
-        const tbody = $('<tbody/>')
-            .appendTo(table);
-        const marksCount = tableArr[0].arr.length;
-        for (let i = 0; i < marksCount; i++) {
-            const lineArr = tableArr.map(v => v.arr[i]);
-            tbody.append(`<tr><th>${students[i].num}</th><th>${students[i].name}</th>${lineArr.map(el => `<td>${el}</td>`).join()}</tr>`);
-            textBuf += lineArr.join('\t') + '\r\n';
-        }
+            $('<tr/>')
+                .appendTo(table)
+                .wrap('<thead/>')
+                .append('<th>№</th><th>Ф.И.О.</th>')
+                .append(headTrString);
 
-        await navigator.clipboard.writeText(textBuf);
-        alert('скопировано');
-        $('body').scrollTo(table,1000, {margin:true});
+            let textBuf = '';
+            const tbody = $('<tbody/>')
+                .appendTo(table);
+
+            quarter.values().toArray().forEach(({ order, id, name, marks }, i) => {
+                const tr = $(`<tr pupil_id='${id}'><th>${order}</th><th>${name}</th></tr>`)
+                    .appendTo(tbody);
+                $('#subjList input:checked')
+                    .parent()
+                    .each(async (i, e) => {
+                        const subject_id = e.getAttribute('data-subject');
+                        const mark = marks.get(subject_id) ?? "Предмет не загружен";
+                        textBuf += mark + '\t';
+                        tr.append(`<td>${mark}</td>`);
+                    });
+                textBuf += '\r\n';
+            });
+            table
+                .before($(`<button class='btn'>(${quarter.caption}) копировать</button>`).click(async () => {
+                    await navigator.clipboard.writeText(textBuf);
+                    alert('скопировано');
+                }));
+        });
+
+        alert('Данные загружены');
     }
 
     jQuery(document).ready(function ($) {
@@ -260,13 +323,22 @@
         });
 
         GM_addStyle(
-            `   .table {
+            `   .btn{
+                    border: 1px solid #8444fb !important
+                    padding: 6px !important;
+                }
+                .btn:hover {
+                    background: #8444fb;
+                    color: white;
+                    transition: all .2s;
+                }    
+                .table {
                     display: block;
                     overflow-x: auto;
                     width: 100%;
                     margin-bottom: 20px;
                     border: 1px solid #dddddd;
-                    border-collapse: collapse; 
+                    border-collapse: collapse;
                 }
                 .table tbody {
                     width: 100%;
@@ -282,7 +354,7 @@
                     padding: 5px;
                 }
                 #subj_quart_copy_wrap li {
-                    padding:4px; 
+                    padding:4px;
                     list-style: auto;
                 }
 
@@ -292,7 +364,7 @@
                 }
                 .lnk{
                     margin: 4px;
-                    cursor:pointer; 
+                    cursor:pointer;
                 }
                 .btn {
                     cursor:default;
@@ -309,3 +381,11 @@
                 .click(onQuarterMarksButtonClick));
     });
 })();
+
+function getAcademicYearSecondPart(date) {
+    let year = date.getFullYear();
+    let month = date.getMonth() + 1; // месяцы начинаются с 0, поэтому добавляем 1
+
+    // Учебный год обычно начинается осенью, например, с сентября (9 месяца)
+    return month >= 9 ? year + 1 : year;
+}
