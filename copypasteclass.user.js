@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         CopyPasteClass
 // @namespace    http://tampermonkey.net/
-// @version      1.3
+// @version      1.4
 // @description
 // @author       You
 // @match        https://*.schools.by/class/*
@@ -12,59 +12,7 @@
 // ==/UserScript==
 
 (function () {
-    'use strict';
-
-    Array.prototype.dic = function (arr2) {
-        if (!Array.isArray(arr2)) {
-            throw new Error("arr2 is not Array");
-        }
-
-        if (this.length != arr2.length) {
-            throw new Error("arr2 must be same length");
-        }
-
-        let dic = new Map();
-        for (let i = 0; i < this.length; i++) {
-            dic[this[i]] = arr2[i];
-        }
-
-        return dic;
-    }
-
-    const marksEx1 = ["з.", "н/а", "осв.", ''];
-    const marksEx2 = ["ЗЧ", "НУ", "ОСВ", "НИ"];
-
-    const setDic = marksEx2.dic([-2, -4, -5, null]);
-    const getDic = marksEx1.dic(marksEx2);
-
-    const subjects = [
-        ['Белорусский язык', 1],
-        ['Белорусская литература', 2],
-        ['Русский язык', 3],
-        ['Русская литература', 4],
-        ['Английский язык', 5],
-        ['Математика', 6],
-        ['Информатика', 7],
-        ['История Беларуси', 8],
-        ['Великая Отечественная война (IX класс)', 8],
-        ['Всемирная История', 9],
-        ['Человек и Мир', 10],
-        ['Обществоведение', 11],
-        ['География', 12],
-        ['Биология', 13],
-        ['Физика', 14],
-        ['Астрономия', 15],
-        ['Химия', 16],
-        ['Физическая культура и здоровье', 17],
-        ['Трудовое обучение', 18],
-        ['Допризывная и медицинская подготовка', 19],
-        ['Черчение', 20],
-        ['История Беларуси в контексте всемирной истории', 21]
-    ]
-        .reduce((dic, val) => {
-            dic[val[0]] = val[1];
-            return dic;
-        }, new Map());
+    'use strict';    
 
     function initEmptyUI() {
         $("#subj_quart_copy_wrap").empty();
@@ -318,12 +266,18 @@
     }
 
     jQuery(document).ready(function ($) {
+        GM_addStyle(INJECTED_CSS);
         $('.title_box h1').click(() => {
             navigator.clipboard.writeText($('.pupil').map((i, e) => `=ПОИСК("${e.innerText.trim()}";$B${6 + i})=1`).toArray().join("\n"))
         });
+        $('.tabs1_wrap')
+            .before($('<button class="btn">Четвертные оценки</button>')
+                .click(onQuarterMarksButtonClick));
+    });
+})();
 
-        GM_addStyle(
-            `   .btn{
+const INJECTED_CSS =
+                `.btn{
                     border: 1px solid #8444fb !important
                     padding: 6px !important;
                 }
@@ -374,13 +328,33 @@
                     width: fit-content;
                     border: 1px solid #E2E7FF;
                     border-radius: 4px;
-                }`);
+                }
 
-        $('.tabs1_wrap')
-            .before($('<div class="btn">Четвертные оценки</div>')
-                .click(onQuarterMarksButtonClick));
-    });
-})();
+                #subj_quart_copy_wrap {
+                    margin: 10px 0;
+                }
+                #subj_quart_copy_wrap .btn {
+                    display: inline-block;
+                    padding: 5px 10px;
+                    background-color: #007bff;
+                    color: white;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    margin-right: 5px;
+                }
+                #subj_quart_copy_wrap .btn:hover {
+                    background-color: #0056b3;
+                }
+                #subjList {
+                    list-style-type: none;
+                    padding-left: 0;
+                }
+                #subjList li {
+                    margin-bottom: 5px;
+                }
+                #subjList input[type="checkbox"] {
+                    margin-right: 5px;
+                }`;
 
 function getAcademicYearSecondPart(date) {
     let year = date.getFullYear();
@@ -389,3 +363,55 @@ function getAcademicYearSecondPart(date) {
     // Учебный год обычно начинается осенью, например, с сентября (9 месяца)
     return month >= 9 ? year + 1 : year;
 }
+
+function ArrayToDictionary(arr1, arr2) {
+        if (!Array.isArray(arr2)) {
+            throw new Error("arr2 is not Array");
+        }
+
+        if (arr1.length != arr2.length) {
+            throw new Error("arr2 must be same length");
+        }
+
+        let dic = new Map();
+        for (let i = 0; i < arr1.length; i++) {
+            dic[arr1[i]] = arr2[i];
+        }
+
+        return dic;
+    }
+
+    const marksEx1 = ["з.", "н/а", "осв.", ''];
+    const marksEx2 = ["ЗЧ", "НУ", "ОСВ", "НИ"];
+
+    const setDic = ArrayToDictionary(marksEx2, [-2, -4, -5, null]);
+    const getDic = ArrayToDictionary(marksEx1, marksEx2);
+
+    const subjects = [
+        ['Белорусский язык', 1],
+        ['Белорусская литература', 2],
+        ['Русский язык', 3],
+        ['Русская литература', 4],
+        ['Английский язык', 5],
+        ['Математика', 6],
+        ['Информатика', 7],
+        ['История Беларуси', 8],
+        ['Великая Отечественная война (IX класс)', 8],
+        ['Всемирная История', 9],
+        ['Человек и Мир', 10],
+        ['Обществоведение', 11],
+        ['География', 12],
+        ['Биология', 13],
+        ['Физика', 14],
+        ['Астрономия', 15],
+        ['Химия', 16],
+        ['Физическая культура и здоровье', 17],
+        ['Трудовое обучение', 18],
+        ['Допризывная и медицинская подготовка', 19],
+        ['Черчение', 20],
+        ['История Беларуси в контексте всемирной истории', 21]
+    ]
+        .reduce((dic, val) => {
+            dic[val[0]] = val[1];
+            return dic;
+        }, new Map());
