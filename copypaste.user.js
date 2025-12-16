@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         copy/paste quarter marks in class journal
 // @namespace    http://tampermonkey.net/
-// @version      1.2
+// @version      1.3
 // @description  Data format: one column with '\r\n' delimeter
 // @author       Stirli
 // @match        https://*.schools.by/journal/*
@@ -116,7 +116,7 @@
             }
 
             async #onCopyClick() {
-                const arr = $('table.mtable tbody tr')
+                const arr = $('table.mtable tbody tr:not(.hidden)')
                     .map((i, e) => $(e)
                         .find('td.mark, td.dis')
                         .map((i, e) => e.innerText.trim())
@@ -129,38 +129,60 @@
             }
 
             async #onPasteClick() {
+                try {
+                    const arr = await this._readClipboardData();
 
-                const arr = await this._readClipboardData();
+                    console.log(arr);
+                    const lessons = $('table.mtable thead tr.lesson_dates td.lesson_date:not(.hidden)').map((i, e) => ({
+                        lesson_date: $(e).attr('day'),
+                        lesson_id: $(e).attr('lesson_id')
+                    }));
+                    const tasksData = $('table.mtable tbody tr:not(.hidden)')
+                        .map((pId, e) => {
+                            let pupil_id = $(e).attr('pupil_id');
+                            return $(e).find('td.mark')
+                                .map((lesId, e) => {
+                                    if (arr[pId] === undefined)
+                                        return;
+                                    const id = $(e).attr('m_id') ?? "";
+                                    let cpMark = arr[pId][lesId];
+                                    let m = null;
+                                    if (cpMark !== undefined && cpMark !== "") {
+                                        if (cpMark in specToNumDic) {
+                                            m = specToNumDic[cpMark];
+                                        }
+                                        else if (isNaN(m = parseInt(cpMark))) {
+                                            m = cpMark;
+                                        }
+                                    }
 
-                console.log(arr);
-                const lessons = $('table.mtable tr.lesson_dates td.lesson_date').map((i, e) => ({
-                    lesson_date: $(e).attr('day'),
-                    lesson_id: $(e).attr('lesson_id')
-                }));
-                const tasks = $('table.mtable tbody tr')
-                    .map((pId, e) => {
-                        let pupil_id = $(e).attr('pupil_id');
-                        return $(e).find('td.mark, td.dis')
-                            .map((lesId, e) => {
-                                let m = arr[pId][lesId];
-                                if (m === undefined || e.innerText.trim() === m) {
-                                    console.log('no mark for ', e);
-                                    return emptyPromise;
-                                }
-
-                                return this._postSubjectDataAsync({
-                                    method: 'set',
-                                    data: {
-                                        id: $(e).attr('m_id') ?? null,
-                                        m: specToNumDic[m] ?? m,
+                                    return {
+                                        id,
+                                        m,
                                         pupil_id,
                                         ...lessons[lesId]
-                                    }
+                                    };
                                 })
-                            });
-                    });
-                await Promise.all(tasks);
-                window.location.reload();
+                                .toArray();
+                        })
+                        .toArray()
+                        .flat();
+                    console.log(tasksData);
+                    for (let index = 0; index < tasksData.length; index++) {
+                        const data = tasksData[index];
+                        if (data.m)
+                            await this._postSubjectDataAsync({
+                                method: 'set',
+                                data
+                            })
+                    }
+
+                    window.location.reload();
+                }
+                catch {
+                    alert("Произошла ошибка");
+                }
+
             }
         }
 
