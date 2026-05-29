@@ -143,13 +143,14 @@
                                             let quarterId = null;
                                             const cls = (m.getAttribute('class') || '');
                                             if ((cls.indexOf('qmark') !== -1)) {
-                                                quarterId = m.getAttribute('quarter_id');
+                                                const rawQ = m.getAttribute('quarter_id');
+                                                quarterId = rawQ ? (rawQ + '_' + academicYear) : ('' + '_' + academicYear);
                                             } else if ((cls.indexOf('ymark') !== -1)) {
-                                                quarterId = 'year' + academicYear;
+                                                quarterId = 'year_' + academicYear;
                                             } else if ((cls.indexOf('emark') !== -1)) {
-                                                quarterId = 'exam' + academicYear;
+                                                quarterId = 'exam_' + academicYear;
                                             } else if ((cls.indexOf('tmark') !== -1)) {
-                                                quarterId = 'total' + academicYear;
+                                                quarterId = 'total_' + academicYear;
                                             }
                                             marks.push({
                                                 pupil_id: id,
@@ -161,12 +162,13 @@
                             // build quarters map: quarters from qmark plus exam/total/year
                             const quarters = new Map();
                             $(data).find('.mtable tbody tr').first().find('.qmark').each((i, m) => {
-                                const qid = m.getAttribute('quarter_id');
+                                const raw = m.getAttribute('quarter_id');
+                                const qid = raw ? (raw + '_' + academicYear) : ('_' + academicYear);
                                 quarters.set(qid, 'Четверть ' + (i + 1));
                             });
-                            quarters.set('exam' + academicYear, 'Экзамен');
-                            quarters.set('total' + academicYear, 'Итог');
-                            quarters.set('year' + academicYear, 'Год');
+                            quarters.set('exam_' + academicYear, 'Экзамен');
+                            quarters.set('total_' + academicYear, 'Итог');
+                            quarters.set('year_' + academicYear, 'Год');
                             resolve({ pupils, marks, quarters, academicYear });
                         },
                         error: function (xhr, status, err) {
