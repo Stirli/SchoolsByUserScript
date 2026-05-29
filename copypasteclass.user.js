@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         CopyPasteClass
 // @namespace    http://tampermonkey.net/
-// @version      1.4
+// @version      1.5
 // @description
-// @author       You
+// @author       Stirli
 // @match        https://*.schools.by/class/*
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=schools.by
 // @require      https://ajax.googleapis.com/ajax/libs/jquery/3.1.0/jquery.min.js
@@ -365,15 +365,15 @@ function getAcademicYearSecondPart(date) {
 }
 
 function ArrayToDictionary(arr1, arr2) {
-        if (!Array.isArray(arr2)) {
-            throw new Error("arr2 is not Array");
+        if (!Array.isArray(arr1) || !Array.isArray(arr2)) {
+            throw new Error("Both arguments must be arrays");
         }
 
         if (arr1.length != arr2.length) {
             throw new Error("arr2 must be same length");
         }
 
-        let dic = new Map();
+        const dic = {};
         for (let i = 0; i < arr1.length; i++) {
             dic[arr1[i]] = arr2[i];
         }
@@ -381,7 +381,7 @@ function ArrayToDictionary(arr1, arr2) {
         return dic;
     }
 
-    const marksEx1 = ["з.", "н/а", "осв.", ''];
+    const marksEx1 = ["з.", "н/а", "осв.", 'н/и'];
     const marksEx2 = ["ЗЧ", "НУ", "ОСВ", "НИ"];
 
     const setDic = ArrayToDictionary(marksEx2, [-2, -4, -5, null]);
@@ -414,4 +414,4 @@ function ArrayToDictionary(arr1, arr2) {
         .reduce((dic, val) => {
             dic[val[0]] = val[1];
             return dic;
-        }, new Map());
+        }, {});
